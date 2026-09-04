@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENDPOINT_URL="${DYNAMODB_ENDPOINT_URL:-http://dynamodb:8000}"
-TABLE_NAME="${GREETING_TABLE_NAME:-GreetingMessages}"
+TABLE_NAME="${DYNAMODB_TABLE:-core_banking}"
 REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 SEED_FILE="/dynamodb-seed/greeting-messages.json"
 
@@ -19,8 +19,8 @@ else
   echo "Creating table '${TABLE_NAME}'..."
   aws dynamodb create-table \
     --table-name "${TABLE_NAME}" \
-    --attribute-definitions AttributeName=id,AttributeType=S \
-    --key-schema AttributeName=id,KeyType=HASH \
+    --attribute-definitions AttributeName=pk,AttributeType=S AttributeName=sk,AttributeType=S \
+    --key-schema AttributeName=pk,KeyType=HASH AttributeName=sk,KeyType=RANGE \
     --billing-mode PAY_PER_REQUEST \
     --endpoint-url "${ENDPOINT_URL}" \
     --region "${REGION}" >/dev/null
@@ -31,11 +31,15 @@ else
   echo "Table '${TABLE_NAME}' created."
 fi
 
-echo "Seeding greeting messages from ${SEED_FILE}..."
-aws dynamodb batch-write-item \
-  --request-items "file://${SEED_FILE}" \
-  --endpoint-url "${ENDPOINT_URL}" \
-  --region "${REGION}" >/dev/null
+if [ -f "${SEED_FILE}" ]; then
+  echo "Seeding greeting messages from ${SEED_FILE}..."
+  aws dynamodb batch-write-item \
+    --request-items "file://${SEED_FILE}" \
+    --endpoint-url "${ENDPOINT_URL}" \
+    --region "${REGION}" >/dev/null || echo "Seed skipped (no valid seed file for core_banking)."
+else
+  echo "No seed file found at ${SEED_FILE}, skipping seed."
+fi
 
 COUNT=$(aws dynamodb scan \
   --table-name "${TABLE_NAME}" \

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BROKERS="${REDPANDA_BROKERS:-redpanda:9092}"
-TOPIC_NAME="${GREETING_TEMPLATES_TOPIC:-greeting-templates}"
+TOPIC_NAME="${ACCOUNT_CREATED_TOPIC:-conta-bancaria-criada}"
 SEED_FILE="/redpanda-seed/greeting-templates-seed.jsonl"
 
 echo "Waiting for Redpanda broker at ${BROKERS}..."
@@ -19,8 +19,11 @@ else
   rpk topic create "${TOPIC_NAME}" --brokers "${BROKERS}" --partitions 1 --replicas 1
 fi
 
-echo "Publishing seed messages from ${SEED_FILE}..."
-rpk topic produce "${TOPIC_NAME}" --brokers "${BROKERS}" -f '%v\n' < "${SEED_FILE}"
-
-COUNT=$(wc -l < "${SEED_FILE}" | tr -d ' ')
-echo "Seed complete. Published ${COUNT} message(s) to '${TOPIC_NAME}'."
+if [ -f "${SEED_FILE}" ]; then
+  echo "Publishing seed messages from ${SEED_FILE}..."
+  rpk topic produce "${TOPIC_NAME}" --brokers "${BROKERS}" -f '%v\n' < "${SEED_FILE}" || echo "Seed file not compatible, skipping."
+  COUNT=$(wc -l < "${SEED_FILE}" | tr -d ' ')
+  echo "Seed complete. Published ${COUNT} message(s) to '${TOPIC_NAME}'."
+else
+  echo "No seed file at ${SEED_FILE}, skipping publish. Topic '${TOPIC_NAME}' ready."
+fi
