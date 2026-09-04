@@ -12,7 +12,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse
 import kotlin.test.assertEquals
 
-class DynamoDbGreetingTemplateWriterTest {
+class DynamoDbTransactionRequestTemplateWriterTest {
 
     @Test
     fun `should put the greeting template into the configured table`() {

@@ -24,7 +24,7 @@ private const val TOPIC = "greeting-templates"
  * with `./gradlew integrationTest` or `make integration-test`.
  */
 @SpringBootTest
-class GreetingTemplateConsumerIntegrationTest {
+class TransactionRequestTemplateConsumerIntegrationTest {
 
     @Autowired
     private lateinit var kafkaTemplate: KafkaTemplate<String, String>

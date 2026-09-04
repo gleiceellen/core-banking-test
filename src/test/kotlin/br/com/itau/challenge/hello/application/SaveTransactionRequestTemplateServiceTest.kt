@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class SaveGreetingTemplateServiceTest {
+class SaveTransactionRequestTemplateServiceTest {
 
     @Test
     fun `should save a valid greeting template`() {

@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
-class GreetingTemplateTest {
+class TransactionRequestTemplateTest {
 
     @Test
     fun `should expose the id and template it was created with`() {

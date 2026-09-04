@@ -3,7 +3,7 @@ package br.com.itau.challenge.hello.domain.exception
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class InvalidGreetingTemplateExceptionTest {
+class InvalidTransactionRequestTemplateExceptionTest {
 
     @Test
     fun `should carry the message it was created with`() {

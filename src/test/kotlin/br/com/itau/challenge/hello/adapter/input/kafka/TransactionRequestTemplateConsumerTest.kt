@@ -6,7 +6,7 @@ import tools.jackson.databind.json.JsonMapper
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class GreetingTemplateConsumerTest {
+class TransactionRequestTemplateConsumerTest {
 
     private val objectMapper = JsonMapper.builder().build()
 
