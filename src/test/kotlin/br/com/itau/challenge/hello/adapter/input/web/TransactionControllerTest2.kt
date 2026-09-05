@@ -10,7 +10,6 @@ import br.com.itau.challenge.hello.port.input.TransactionAuthorizationUseCase
 import br.com.itau.challenge.hello.port.input.TransactionAuthorizationResponse
 import br.com.itau.challenge.hello.domain.model.AccountTransactionResponse
 import br.com.itau.challenge.hello.domain.model.Balance
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.`when`
 import org.mockito.kotlin.any
@@ -23,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 @SpringBootTest

@@ -11,7 +11,7 @@ class MoneyMinorTest {
     fun `should convert string to minor without fraction`() {
         assertEquals(10000L, "100".toMinor())
         assertEquals(100L, "1".toMinor())
-        assertEquals(0L, "0.01".toMinor())
+        assertEquals(1L, "0.01".toMinor())
     }
 
     @Test

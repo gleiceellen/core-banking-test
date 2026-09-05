@@ -215,12 +215,14 @@ class AccountTransactionRepository(
     }
 
     private fun getTransactionItem(pk: String, sk: String): Map<String, AttributeValue>? {
-        val resp = dynamoDbClient.getItem { it.tableName(tableName).key(mapOf("pk" to AttributeValue.fromS(pk), "sk" to AttributeValue.fromS(sk))).consistentRead(true) }
+        val req = GetItemRequest.builder().tableName(tableName).key(mapOf("pk" to AttributeValue.fromS(pk), "sk" to AttributeValue.fromS(sk))).consistentRead(true).build()
+        val resp = dynamoDbClient.getItem(req)
         return if (resp.hasItem()) resp.item() else null
     }
 
     private fun getAccountItem(pk: String): Map<String, AttributeValue>? {
-        val resp = dynamoDbClient.getItem { it.tableName(tableName).key(mapOf("pk" to AttributeValue.fromS(pk), "sk" to AttributeValue.fromS("PROFILE#METADATA"))).consistentRead(true) }
+        val req = GetItemRequest.builder().tableName(tableName).key(mapOf("pk" to AttributeValue.fromS(pk), "sk" to AttributeValue.fromS("PROFILE#METADATA"))).consistentRead(true).build()
+        val resp = dynamoDbClient.getItem(req)
         return if (resp.hasItem()) resp.item() else null
     }
 }
