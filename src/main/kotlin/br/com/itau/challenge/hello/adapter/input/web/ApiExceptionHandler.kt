@@ -24,7 +24,7 @@ class ApiExceptionHandler {
 
     @ExceptionHandler(InvalidAmountException::class)
     fun handleInvalidAmount(ex: InvalidAmountException): ResponseEntity<ErrorResponse> {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse(ex.message ?: "Invalid amount"))
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse("Invalid amount"))
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
@@ -35,17 +35,17 @@ class ApiExceptionHandler {
 
     @ExceptionHandler(AccountNotFoundException::class, AccountInexistentException::class)
     fun handleNotFound(ex: RuntimeException): ResponseEntity<ErrorResponse> {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse(ex.message ?: "Account not found"))
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse("Account not found"))
     }
 
     @ExceptionHandler(CurrencyMismatchException::class)
     fun handleCurrency(ex: CurrencyMismatchException): ResponseEntity<ErrorResponse> {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ErrorResponse(ex.message ?: "Currency mismatch"))
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ErrorResponse( "Currency mismatch"))
     }
 
     @ExceptionHandler(IdempotencyConflictException::class)
     fun handleConflict(ex: IdempotencyConflictException): ResponseEntity<ErrorResponse> {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse(ex.message ?: "Idempotency conflict"))
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse("Idempotency conflict"))
     }
 
     @ExceptionHandler(SdkClientException::class)

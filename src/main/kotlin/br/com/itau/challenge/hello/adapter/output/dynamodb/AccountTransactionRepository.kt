@@ -2,6 +2,7 @@ package br.com.itau.challenge.hello.adapter.output.dynamodb
 
 import br.com.itau.challenge.hello.adapter.output.dynamodb.mapper.toEntity
 import br.com.itau.challenge.hello.domain.exception.AccountInexistentException
+import br.com.itau.challenge.hello.domain.exception.AccountNotFoundException
 import br.com.itau.challenge.hello.domain.exception.CurrencyMismatchException
 import br.com.itau.challenge.hello.domain.exception.IdempotencyConflictException
 import br.com.itau.challenge.hello.domain.model.Amount
@@ -43,7 +44,7 @@ class AccountTransactionRepository(
             dynamoDbClient.putItem {
                 it.tableName(tableName)
                 it.item(item)
-                it.conditionExpression("attribute_not_exists(pk)")
+                it.conditionExpression("attribute_not_exists(#pk)")
                 it.expressionAttributeNames(mapOf("#pk" to "pk"))
             }
             logger.info("Conta {} criada com saldo zero", accountId)
@@ -98,10 +99,17 @@ class AccountTransactionRepository(
         val amountInCents = transaction.amountValue.toMinor()
 
         val signedAmount = if (transaction.type == "CREDIT") amountInCents else -amountInCents
-        val conditionExpression = if (transaction.type == "CREDIT") {
-            "attribute_exists(balance)"
+        val isDebit = transaction.type == "DEBIT"
+        val conditionExpression = if (isDebit) {
+            "attribute_exists(balance) AND balance >= :need"
         } else {
-            "attribute_exists(balance) AND balance + :amount > 0"
+            "attribute_exists(balance)"
+        }
+        val expressionValues = mutableMapOf<String, AttributeValue>(
+            ":amount" to AttributeValue.fromN(signedAmount.toString())
+        )
+        if (isDebit) {
+            expressionValues[":need"] = AttributeValue.fromN(amountInCents.toString())
         }
 
         val updateRequest = Update.builder()
@@ -113,11 +121,7 @@ class AccountTransactionRepository(
                 )
             )
             .updateExpression("ADD balance :amount")
-            .expressionAttributeValues(
-                mapOf(
-                    ":amount" to AttributeValue.fromN(signedAmount.toString())
-                )
-            )
+            .expressionAttributeValues(expressionValues)
             .conditionExpression(conditionExpression)
             .build()
 
@@ -171,6 +175,44 @@ class AccountTransactionRepository(
                 ),
                 newBalance
             )
+        } catch (e: TransactionCanceledException) {
+            // Transact falhou por condição: primeiro item (balance) ou segundo (put idempotência)
+            val reasons = e.cancellationReasons()
+            val firstFailed = reasons.isNotEmpty() && reasons[0].code() == "ConditionalCheckFailed"
+            val secondFailed = reasons.size > 1 && reasons[1].code() == "ConditionalCheckFailed"
+            if (secondFailed) {
+                // duplicata que passou pela verificação inicial por race condition
+                throw IdempotencyConflictException(transaction.transactionId)
+            }
+            if (firstFailed) {
+                val currentBalance = try {
+                    getCurrentBalance(transaction.pk)
+                } catch (ex: AccountInexistentException) {
+                    logger.error(
+                        "Conta {} não encontrada ao tentar recuperar saldo após falha na transação {}",
+                        transaction.accountId,
+                        transaction.transactionId,
+                        ex
+                    )
+                    throw AccountNotFoundException(transaction.accountId)
+                }
+                logger.warn(
+                    "Transação {} não criada para conta {}. Motivo: saldo insuficiente. Saldo atual: {}",
+                    transaction.transactionId,
+                    transaction.accountId,
+                    currentBalance
+                )
+                return Pair(
+                    TransactionResponse(
+                        id = UUID.fromString(transaction.transactionId),
+                        type = OperationType.valueOf(transaction.type),
+                        amount = Amount(transaction.amountValue, transaction.amountCurrency),
+                        status = TransactionStatus.FAILED
+                    ),
+                    currentBalance
+                )
+            }
+            throw e
         } catch (e: ConditionalCheckFailedException) {
             val currentBalance = try {
                 getCurrentBalance(transaction.pk)
@@ -181,17 +223,15 @@ class AccountTransactionRepository(
                     transaction.transactionId,
                     ex
                 )
-                throw ex
+                throw AccountNotFoundException(transaction.accountId)
             }
-
             logger.warn(
-                "Transação {} não criada para conta {}. Motivo: condição não atendida (saldo insuficiente ou conta inexistente). Saldo atual: {}",
+                "Transação {} não criada para conta {}. Motivo: condição não atendida. Saldo atual: {}",
                 transaction.transactionId,
                 transaction.accountId,
                 currentBalance
             )
-
-            Pair(
+            return Pair(
                 TransactionResponse(
                     id = UUID.fromString(transaction.transactionId),
                     type = OperationType.valueOf(transaction.type),

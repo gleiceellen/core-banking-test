@@ -1,6 +1,7 @@
 package br.com.itau.challenge.hello.adapter.output.dynamodb
 
 import br.com.itau.challenge.hello.domain.exception.AccountInexistentException
+import br.com.itau.challenge.hello.domain.exception.AccountNotFoundException
 import br.com.itau.challenge.hello.domain.exception.CurrencyMismatchException
 import br.com.itau.challenge.hello.domain.exception.IdempotencyConflictException
 import br.com.itau.challenge.hello.domain.model.Amount
@@ -153,6 +154,72 @@ class AccountTransactionRepositoryTest {
         }
         whenever(client.transactWriteItems(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest::class.java))).thenThrow(ConditionalCheckFailedException.builder().message("cond").build())
         val repo = AccountTransactionRepository(client, "core_banking")
-        assertFailsWith<AccountInexistentException> { repo.save(txId, req) }
+        assertFailsWith<AccountNotFoundException> { repo.save(txId, req) }
+    }
+
+    @Test
+    fun `should handle insufficient via TransactionCanceledException`() {
+        val accountId = UUID.randomUUID()
+        val txId = UUID.randomUUID().toString()
+        val req = TransactionRequest(accountId, OperationType.DEBIT, Amount("100.00", "BRL"))
+        val client = mock<DynamoDbClient>()
+        whenever(client.getItem(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.GetItemRequest::class.java))).thenAnswer { inv ->
+            val r = inv.arguments[0] as GetItemRequest
+            val sk = r.key()["sk"]?.s() ?: ""
+            if (sk.startsWith("TRANS#")) GetItemResponse.builder().build()
+            else GetItemResponse.builder().item(mapOf("balance" to AttributeValue.fromN("50"), "currency" to AttributeValue.fromS("BRL"))).build()
+        }
+        val ex = software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException.builder()
+            .message("canceled")
+            .cancellationReasons(
+                software.amazon.awssdk.services.dynamodb.model.CancellationReason.builder().code("ConditionalCheckFailed").build(),
+                software.amazon.awssdk.services.dynamodb.model.CancellationReason.builder().code("None").build()
+            ).build()
+        whenever(client.transactWriteItems(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest::class.java))).thenThrow(ex)
+        val repo = AccountTransactionRepository(client, "core_banking")
+        val (resp, bal) = repo.save(txId, req)
+        assertEquals(TransactionStatus.FAILED, resp.status)
+        assertEquals(50L, bal)
+    }
+
+    @Test
+    fun `should throw account not found via TransactionCanceledException`() {
+        val accountId = UUID.randomUUID()
+        val txId = UUID.randomUUID().toString()
+        val req = TransactionRequest(accountId, OperationType.DEBIT, Amount("10.00", "BRL"))
+        val client = mock<DynamoDbClient>()
+        whenever(client.getItem(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.GetItemRequest::class.java))).thenAnswer { inv ->
+            val r = inv.arguments[0] as GetItemRequest
+            val sk = r.key()["sk"]?.s() ?: ""
+            if (sk.startsWith("TRANS#")) GetItemResponse.builder().build()
+            else GetItemResponse.builder().build()
+        }
+        val ex = software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException.builder()
+            .message("canceled")
+            .cancellationReasons(
+                software.amazon.awssdk.services.dynamodb.model.CancellationReason.builder().code("ConditionalCheckFailed").build(),
+                software.amazon.awssdk.services.dynamodb.model.CancellationReason.builder().code("None").build()
+            ).build()
+        whenever(client.transactWriteItems(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest::class.java))).thenThrow(ex)
+        val repo = AccountTransactionRepository(client, "core_banking")
+        assertFailsWith<AccountNotFoundException> { repo.save(txId, req) }
+    }
+
+    @Test
+    fun `should throw idempotency conflict via TransactionCanceledException second item`() {
+        val accountId = UUID.randomUUID()
+        val txId = UUID.randomUUID().toString()
+        val req = TransactionRequest(accountId, OperationType.CREDIT, Amount("10.00", "BRL"))
+        val client = mock<DynamoDbClient>()
+        whenever(client.getItem(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.GetItemRequest::class.java))).thenAnswer { GetItemResponse.builder().build() }
+        val ex = software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException.builder()
+            .message("canceled")
+            .cancellationReasons(
+                software.amazon.awssdk.services.dynamodb.model.CancellationReason.builder().code("None").build(),
+                software.amazon.awssdk.services.dynamodb.model.CancellationReason.builder().code("ConditionalCheckFailed").build()
+            ).build()
+        whenever(client.transactWriteItems(org.mockito.ArgumentMatchers.any(software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest::class.java))).thenThrow(ex)
+        val repo = AccountTransactionRepository(client, "core_banking")
+        assertFailsWith<IdempotencyConflictException> { repo.save(txId, req) }
     }
 }

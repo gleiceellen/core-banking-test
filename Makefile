@@ -53,7 +53,7 @@ db-seed: ## Re-run the seed job (table creation is idempotent, items are overwri
 .PHONY: db-scan
 db-scan: ## List greeting messages currently stored in DynamoDB
 	$(COMPOSE) run --rm --entrypoint aws dynamodb-seed \
-		dynamodb scan --table-name GreetingMessages --endpoint-url http://dynamodb:8000 --region us-east-1
+		dynamodb scan --table-name core_banking --endpoint-url http://dynamodb:8000 --region us-east-1
 
 .PHONY: db-down
 db-down: ## Stop DynamoDB Local + web console
